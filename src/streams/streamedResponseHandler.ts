@@ -1,40 +1,26 @@
-export type CompletionChunk = {
-  model: string;
-  created_at: string;
-  response: string;
-  done: boolean;
-};
+import { IterableReadableStream } from "@langchain/core/utils/stream";
 
-type TStreamedResponse = {
-  data: ReadableStream<ArrayBuffer>;
-  onChunkParsed?: (chunk: CompletionChunk) => void;
-};
+type MessageChunkStream = IterableReadableStream<MessageChunk>;
+interface StreamedResponse {
+  stream: MessageChunkStream;
+  onChunkParsed?: (chunk: MessageChunk) => void;
+}
+
+interface MessageChunk {
+  content: string | string[] | undefined | object;
+}
 
 export const streamedResponseHandler = async ({
-  data,
+  stream,
   onChunkParsed,
-}: TStreamedResponse) => {
-  const reader = data.getReader();
-  const decoder = new TextDecoder();
-
-  const chatResponse: Array<string> = [];
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-
-    const chunk = decoder.decode(value, { stream: true });
-    const lines = chunk.split("\n").filter(Boolean);
-
-    for (const line of lines) {
-      try {
-        const completionChunk: CompletionChunk = JSON.parse(line);
-        chatResponse.push(completionChunk.response);
-        onChunkParsed?.(completionChunk);
-      } catch (error) {
-        console.error("Error parsing chunk:", error);
-      }
-    }
+}: StreamedResponse) => {
+  const chunks: MessageChunk[] = [];
+  for await (const chunk of stream) {
+    chunks.push(chunk);
+    onChunkParsed?.(chunk);
   }
 
-  return chatResponse.join("");
+  const response = chunks.map((c) => c.content).join("");
+
+  return response;
 };

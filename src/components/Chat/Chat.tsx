@@ -1,17 +1,22 @@
 import { FormEvent, useState } from "react";
-import { TChatMessage } from "./ChatMessage";
-import { ChatHistory, TChatHistory } from "./ChatHistory";
-import { generateCompletion } from "../api/generateCompletion";
-import { streamedResponseHandler } from "../streams/streamedResponseHandler";
+import { ChatHistory } from "./ChatHistory";
+import { generateCompletion } from "../../api/generateCompletion";
+import { streamedResponseHandler } from "../../streams/streamedResponseHandler";
 
 import "./Chat.css";
+import ChatInput from "./ChatInput";
 
-export type TChat = {
+interface ChatProps {
   model: string;
-};
+}
 
-export function Chat({ model }: TChat) {
-  const [chatHistory, setChatHistory] = useState<TChatHistory>({
+export function Chat({ model }: ChatProps) {
+  const [chatHistory, setChatHistory] = useState<{
+    messages: {
+      message: string;
+      type: string;
+    }[];
+  }>({
     messages: [],
   });
 
@@ -24,14 +29,14 @@ export function Chat({ model }: TChat) {
     if (chatInput && chatInput.value) {
       const prompt = chatInput.value;
 
-      const humanMessage: TChatMessage = {
-        actor: "human",
+      const humanMessage = {
         message: prompt,
+        type: "human",
       };
 
-      const aiMessage: TChatMessage = {
-        actor: "ai",
+      const aiMessage = {
         message: "",
+        type: "ai",
       };
 
       setChatHistory({
@@ -41,23 +46,25 @@ export function Chat({ model }: TChat) {
       let thinking = false;
 
       generateCompletion({
-        prompt,
+        input: prompt,
         model,
+        history: chatHistory.messages,
       })
-        .then((response) =>
+        .then((stream) =>
           streamedResponseHandler({
-            data: response.data,
+            stream,
             onChunkParsed: (chunk) => {
               const listItems = document.querySelectorAll("li");
               const listItem = listItems[listItems.length - 1];
-              if (chunk.response.match(/<think>/g)) {
+              if ((chunk.content as string).match(/<think>/g)) {
                 thinking = true;
               }
-              if (chunk.response.match(/<\/think>/g)) {
+              if ((chunk.content as string).match(/<\/think>/g)) {
                 thinking = false;
               }
               if (!thinking) {
-                listItem.innerHTML = listItem.innerHTML + chunk.response;
+                listItem.innerHTML =
+                  listItem.innerHTML + (chunk.content as string);
               }
             },
           })
@@ -71,8 +78,8 @@ export function Chat({ model }: TChat) {
               ...chatHistory.messages,
               humanMessage,
               {
-                actor: "ai",
                 message,
+                type: "ai",
               },
             ],
           });
@@ -86,12 +93,7 @@ export function Chat({ model }: TChat) {
     <div className="chat">
       <ChatHistory {...chatHistory} />
 
-      <form onSubmit={queryModel}>
-        <div className="chat-input">
-          <input type="text" />
-          <input type="submit" value="Send" />
-        </div>
-      </form>
+      <ChatInput onSubmit={queryModel} />
     </div>
   );
 }

@@ -1,11 +1,13 @@
-import { TChatMessage, ChatMessage } from "./ChatMessage";
+import { ChatMessage } from "./ChatMessage";
 
-export type TChatHistory = {
-  messages: Array<TChatMessage>;
-};
+interface ChatHistoryProps {
+  messages: {
+    message: string;
+    type: string;
+  }[];
+}
 
-export function ChatHistory(chatHistory: TChatHistory) {
-  const { messages } = chatHistory;
+export function ChatHistory({ messages }: ChatHistoryProps) {
   return (
     <div className="chat-history-container">
       <ul className="chat-history">

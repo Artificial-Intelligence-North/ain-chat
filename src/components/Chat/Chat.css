@@ -6,10 +6,7 @@
 .chat {
   display: block;
 
-  min-width: 800px;
-  max-width: 1200px;
   width: 100%;
-
   min-height: 600px;
 
   padding: 1rem;
